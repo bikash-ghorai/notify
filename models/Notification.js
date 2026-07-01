@@ -22,7 +22,7 @@ Notification.init({
         allowNull: false
     },
     zone_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING(255),
         allowNull: false
     },
     notify_to: {

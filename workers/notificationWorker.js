@@ -27,8 +27,8 @@ async function startWorker() {
             console.log(`[Worker] Processing notification ID: ${notification.id} - "${notification.title}"`);
 
             // Immediately change status to 'In Progress' to lock it
-            notification.status = 'In Progress';
-            await notification.save();
+            // notification.status = 'In Progress';
+            // await notification.save();
 
             try {
                 // 2. Query target users in the specified zone
@@ -43,11 +43,11 @@ async function startWorker() {
                 };
 
                 // Filter by specific user list if it's not set to 'all'
-                if (notification.notify_to && notification.notify_to == 'one_order') {
+                if (notification.notify_to == 'one_order') {
                     userWhereClause.flag = 1;
-                } else if (notification.notify_to && notification.notify_to == 'more_than_one_order') {
+                } else if (notification.notify_to == 'more_than_one_order') {
                     userWhereClause.flag = 2;
-                } else if (notification.notify_to && notification.notify_to == 'no_order') {
+                } else if (notification.notify_to == 'no_order') {
                     userWhereClause.flag = 0;
                 }
 
@@ -80,10 +80,28 @@ async function startWorker() {
                             title: notification.title,
                             body: notification.body
                         },
-                        tokens: batchTokens
+                        tokens: batchTokens,
+                        android: {
+                            priority: 'high',
+                            notification: {
+                                color: '#FF7351'
+                            }
+                        },
+                        apns: {
+                            headers: {
+                                'apns-priority': '10'
+                            },
+                            payload: {
+                                aps: {
+                                    contentAvailable: true,
+                                    sound: 'default'
+                                }
+                            }
+                        }
                     };
 
                     const response = await messaging.sendEachForMulticast(message);
+
                     successCount += response.successCount;
                     failureCount += response.failureCount;
                 }

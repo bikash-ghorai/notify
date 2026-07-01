@@ -8,6 +8,12 @@ const sequelize = new Sequelize(
         host: process.env.DB_HOST,
         dialect: 'mysql',
         logging: false, // Set to true or console.log if you want SQL query logs
+        timezone: (() => {
+            const offset = -new Date().getTimezoneOffset();
+            const sign = offset >= 0 ? '+' : '-';
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${sign}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(Math.abs(offset) % 60)}`;
+        })(),
         pool: {
             max: 10,
             min: 0,

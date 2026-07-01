@@ -30,7 +30,7 @@ module.exports = {
         allowNull: false
       },
       zone_id: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.STRING(255),
         allowNull: false
       },
       flag: {
@@ -41,11 +41,11 @@ module.exports = {
         type: Sequelize.STRING(50),
         allowNull: false
       },
-      createdAt: {
+      created_at: {
         allowNull: false,
         type: Sequelize.DATE
       },
-      updatedAt: {
+      updated_at: {
         allowNull: false,
         type: Sequelize.DATE
       }

@@ -22,7 +22,7 @@ module.exports = {
                 allowNull: false
             },
             zone_id: {
-                type: Sequelize.INTEGER,
+                type: Sequelize.STRING(255),
                 allowNull: false
             },
             notify_to: {
@@ -42,11 +42,11 @@ module.exports = {
                 type: Sequelize.INTEGER,
                 defaultValue: 0
             },
-            createdAt: {
+            created_at: {
                 allowNull: false,
                 type: Sequelize.DATE
             },
-            updatedAt: {
+            updated_at: {
                 allowNull: false,
                 type: Sequelize.DATE
             }

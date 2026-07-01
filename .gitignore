@@ -3,3 +3,4 @@
 .env
 /ahaari-fcm-adminsdk.json
 /node_modules
+/package-lock.json

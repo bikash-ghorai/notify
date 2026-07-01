@@ -13,7 +13,6 @@ class UserController {
 
         // Map incoming users to objects matching User model fields
         const values = users.map(u => ({
-            id: u.id,
             user_id: u.user_id,
             first_name: u.first_name,
             last_name: u.last_name,
