@@ -2,8 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const apiRoutes = require('./routes/api');
 const cron = require('node-cron');
+const cors = require('cors');
+const apiRoutes = require('./routes/api');
 const { startWorker } = require('./workers/notificationWorker');
 
 const app = express();
@@ -16,6 +17,7 @@ const io = new Server(server, {
     }
 });
 
+app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 app.set('io', io);
