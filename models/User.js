@@ -7,7 +7,8 @@ User.init({
     id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        primaryKey: true
+        primaryKey: true,
+        autoIncrement: true
     },
     user_id: {
         type: DataTypes.STRING(255),
@@ -27,15 +28,16 @@ User.init({
     },
     fcm_token: {
         type: DataTypes.TEXT,
-        allowNull: false
+        allowNull: true
     },
     zone_id: {
         type: DataTypes.STRING(255),
         allowNull: false
     },
     flag: {
-        type: DataTypes.STRING(50),
-        allowNull: true
+        type: DataTypes.TINYINT(2),
+        allowNull: false,
+        defaultValue: 0
     },
     status: {
         type: DataTypes.STRING(50),

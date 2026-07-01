@@ -34,8 +34,9 @@ module.exports = {
         allowNull: false
       },
       flag: {
-        type: Sequelize.STRING(50),
-        allowNull: true
+        type: Sequelize.TINYINT(2),
+        allowNull: false,
+        defaultValue: 0
       },
       status: {
         type: Sequelize.STRING(50),
