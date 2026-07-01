@@ -103,7 +103,7 @@ class NotificationController {
     }
 
     static async edit(req, res) {
-        const { id } = req.body;
+        const id = req.params.id;
         if (!id) {
             return res.json({ status: false, message: "Invalid request data" });
         }
