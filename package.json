@@ -1,0 +1,19 @@
+{
+  "name": "ahaari",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase-admin": "^14.1.0",
+    "mysql2": "^3.22.5",
+    "node-cron": "^4.5.0",
+    "sequelize": "^6.37.8"
+  }
+}

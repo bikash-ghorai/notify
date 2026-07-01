@@ -1,0 +1,5 @@
+*.log
+.DS_Store
+.env
+/ahaari-fcm-adminsdk.json
+/node_modules
