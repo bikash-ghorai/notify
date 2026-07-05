@@ -63,7 +63,15 @@ io.on('connection', (socket) => {
 
     // Handle incoming analytics
     socket.on('analytics', async (data, callback) => {
+        const socketId = socket.id;
+        console.log('socketId', socketId);
+        console.log('emit data', data);
         try {
+            if (data && data.session_id) {
+                await redisClient.set(`socket:session:${socketId}`, data.session_id);
+                await redisClient.set(`session:socket:${data.session_id}`, socketId);
+                await redisClient.sAdd('active_sessions', data.session_id);
+            }
             const analytics = await AnalyticController.saveAnalytics(data);
             if (typeof callback === 'function') {
                 callback({ status: true, message: 'Analytics synced successfully', data: analytics });
@@ -77,12 +85,20 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', async () => {
+        console.log('A user disconnected');
         try {
             const userId = await redisClient.get(`socket:user:${socket.id}`);
             if (userId) {
                 await redisClient.del(`user:socket:${userId}`);
                 await redisClient.del(`socket:user:${socket.id}`);
                 await redisClient.sRem('active_users', userId);
+            }
+
+            const sessionId = await redisClient.get(`socket:session:${socket.id}`);
+            if (sessionId) {
+                await redisClient.del(`socket:session:${socket.id}`);
+                await redisClient.del(`session:socket:${sessionId}`);
+                await redisClient.sRem('active_sessions', sessionId);
             }
 
             const count = await redisClient.sCard('active_users');

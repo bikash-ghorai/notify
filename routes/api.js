@@ -19,6 +19,7 @@ router.post('/send-message-to-all', SocketController.sendMessageToAll);
 
 // For Analytics
 router.post('/analytics', AnalyticController.analytics);
+router.get('/analytics/:id', AnalyticController.analyticsBySessionId);
 
 module.exports = router;
 
