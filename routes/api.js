@@ -17,5 +17,8 @@ router.post('/notification/delete', NotificationController.delete);
 router.post('/send-message', SocketController.sendMessage);
 router.post('/send-message-to-all', SocketController.sendMessageToAll);
 
+// For Analytics
+router.post('/analytics', AnalyticController.analytics);
+
 module.exports = router;
 
