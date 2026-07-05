@@ -7,6 +7,7 @@ const cors = require('cors');
 const apiRoutes = require('./routes/api');
 const { startWorker } = require('./workers/notificationWorker');
 const AnalyticController = require('./controllers/analyticController');
+const redisClient = require('./config/redis');
 
 const app = express();
 const server = http.createServer(app);
@@ -36,18 +37,28 @@ app.use((request, response, next) => {
     }
 });
 
-var users = {};
-
 io.on('connection', (socket) => {
     console.log('A user connected');
 
     // Register a new user
-    socket.on('register', (userId) => {
-        if (users[userId]) {
-            delete users[userId];
+    socket.on('register', async (userId, callback) => {
+        try {
+            await redisClient.set(`user:socket:${userId}`, socket.id);
+            await redisClient.set(`socket:user:${socket.id}`, userId);
+            await redisClient.sAdd('active_users', userId);
+
+            const count = await redisClient.sCard('active_users');
+            io.emit('activeUser', { count });
+
+            if (typeof callback === 'function') {
+                callback({ status: true, message: 'User registered successfully', data: socket.id });
+            }
+        } catch (error) {
+            console.error('Error registering user in Redis:', error.message);
+            if (typeof callback === 'function') {
+                callback({ status: false, message: error.message });
+            }
         }
-        users[userId] = socket.id;
-        io.emit('activeUser', { count: Object.keys(users).length });
     });
 
     // Handle incoming analytics
@@ -65,13 +76,19 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        for (let key in users) {
-            if (users[key] === socket.id) {
-                delete users[key];
-                io.emit('activeUser', { count: Object.keys(users).length });
-                break;
+    socket.on('disconnect', async () => {
+        try {
+            const userId = await redisClient.get(`socket:user:${socket.id}`);
+            if (userId) {
+                await redisClient.del(`user:socket:${userId}`);
+                await redisClient.del(`socket:user:${socket.id}`);
+                await redisClient.sRem('active_users', userId);
             }
+
+            const count = await redisClient.sCard('active_users');
+            io.emit('activeUser', { count });
+        } catch (error) {
+            console.error('Error handling disconnect in Redis:', error.message);
         }
     });
 });
@@ -96,3 +113,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Notification microservice is running on port ${PORT}`);
 });
+
+module.exports = { io };

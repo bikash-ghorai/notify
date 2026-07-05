@@ -1,4 +1,5 @@
-const { io, users } = require("../server");
+const { io } = require("../server");
+const redisClient = require("../config/redis");
 
 class SocketController {
     /**
@@ -9,17 +10,22 @@ class SocketController {
             let event = request.body.event;
             let userId = request.body.user_id;
             let message = request.body.message;
-            const userSocketId = users[userId];
+            
+            try {
+                const userSocketId = await redisClient.get(`user:socket:${userId}`);
 
-            if (userSocketId) {
-                if (request.body.data) {
-                    io.to(userSocketId).emit(event, { message: message, data: request.body.data });
+                if (userSocketId) {
+                    if (request.body.data) {
+                        io.to(userSocketId).emit(event, { message: message, data: request.body.data });
+                    } else {
+                        io.to(userSocketId).emit(event, message);
+                    }
+                    response.json({ status: true, message: 'Message sent successfully', data: {} });
                 } else {
-                    io.to(userSocketId).emit(event, message);
+                    response.json({ status: false, message: 'Invalid user ID', data: {} });
                 }
-                response.json({ status: true, message: 'Message sent successfully', data: {} });
-            } else {
-                response.json({ status: false, message: 'Invalid user ID', data: {} });
+            } catch (error) {
+                response.json({ status: false, message: 'Error accessing Redis: ' + error.message, data: {} });
             }
         } else {
             response.json({ status: true, message: 'Require params are missing', data: {} });
