@@ -1,4 +1,3 @@
-const { io } = require("../server");
 const redisClient = require("../config/redis");
 
 class SocketController {
@@ -6,6 +5,13 @@ class SocketController {
      * Handles /api/send-message endpoint
      */
     static async sendMessage(request, response) {
+        const io = request.app.get('io');
+
+        if (!io) {
+            console.error('Socket.IO is not initialized');
+            return response.json({ status: false, message: 'Socket.IO is not initialized', data: {} });
+        }
+
         if (request.body.event && request.body.user_id && request.body.message) {
             let event = request.body.event;
             let userId = request.body.user_id;
@@ -33,6 +39,13 @@ class SocketController {
     };
 
     static async sendMessageToAll(request, response) {
+        const io = request.app.get('io');
+
+        if (!io) {
+            console.error('Socket.IO is not initialized');
+            return response.json({ status: false, message: 'Socket.IO is not initialized', data: {} });
+        }
+
         if (request.body.event && request.body.message) {
             let event = request.body.event;
             let message = request.body.message;

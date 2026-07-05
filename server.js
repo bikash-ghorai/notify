@@ -13,7 +13,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: ["http://localhost", "https://ahaari.com"],
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -25,15 +25,11 @@ app.use(express.json({ limit: '50mb' }));
 app.set('io', io);
 
 app.use((request, response, next) => {
-    if (request.method === 'POST') {
-        const token = request.headers['s-access-token'];
-        if (token == process.env.AUTH_TOKEN) {
-            next();
-        } else {
-            response.json({ status: false, message: 'Authentication Failed', data: {} });
-        }
-    } else {
+    const token = request.headers['s-access-token'];
+    if (token == process.env.AUTH_TOKEN) {
         next();
+    } else {
+        response.json({ status: false, message: 'Authentication Failed', data: {} });
     }
 });
 
