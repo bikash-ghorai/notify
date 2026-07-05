@@ -6,6 +6,7 @@ const cron = require('node-cron');
 const cors = require('cors');
 const apiRoutes = require('./routes/api');
 const { startWorker } = require('./workers/notificationWorker');
+const AnalyticController = require('./controllers/analyticController');
 
 const app = express();
 const server = http.createServer(app);
@@ -47,6 +48,21 @@ io.on('connection', (socket) => {
         }
         users[userId] = socket.id;
         io.emit('activeUser', { count: Object.keys(users).length });
+    });
+
+    // Handle incoming analytics
+    socket.on('analytics', async (data, callback) => {
+        try {
+            const analytics = await AnalyticController.saveAnalytics(data);
+            if (typeof callback === 'function') {
+                callback({ status: true, message: 'Analytics synced successfully', data: analytics });
+            }
+        } catch (error) {
+            console.error('Error saving socket analytics:', error.message);
+            if (typeof callback === 'function') {
+                callback({ status: false, message: error.message });
+            }
+        }
     });
 
     socket.on('disconnect', () => {
