@@ -148,7 +148,7 @@ class AnalyticController {
     }
 
     static async saveDeviceInfo(data) {
-        const { session_id, user_id, version, model, os_version } = data || {};
+        const { session_id, user_id, version, device_name, system_version } = data || {};
 
         if (!session_id || !user_id) {
             throw new Error('Required params are missing');
@@ -158,8 +158,8 @@ class AnalyticController {
             session_id,
             user_id,
             app_version: version,
-            model,
-            os_version
+            model: device_name,
+            os_version: system_version
         });
     }
 }
