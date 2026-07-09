@@ -60,8 +60,6 @@ io.on('connection', (socket) => {
     // Handle incoming analytics
     socket.on('analytics', async (data, callback) => {
         const socketId = socket.id;
-        console.log('socketId', socketId);
-        console.log('emit data', data);
         try {
             if (data && data.session_id) {
                 await redisClient.set(`socket:session:${socketId}`, data.session_id);
@@ -74,6 +72,21 @@ io.on('connection', (socket) => {
             }
         } catch (error) {
             console.error('Error saving socket analytics:', error.message);
+            if (typeof callback === 'function') {
+                callback({ status: false, message: error.message });
+            }
+        }
+    });
+
+    // Handle device info
+    socket.on('device_info', async (data, callback) => {
+        try {
+            const device = await AnalyticController.saveDeviceInfo(data);
+            if (typeof callback === 'function') {
+                callback({ status: true, message: 'Device info updated successfully', data: device });
+            }
+        } catch (error) {
+            console.error('Error saving device info:', error.message);
             if (typeof callback === 'function') {
                 callback({ status: false, message: error.message });
             }

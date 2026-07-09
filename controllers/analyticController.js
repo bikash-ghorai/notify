@@ -1,4 +1,5 @@
 const Analytics = require('../models/Analytics');
+const UserDevice = require('../models/UserDevice');
 const { Op } = require('sequelize');
 const sequelize = require('../config/db');
 const redisClient = require('../config/redis');
@@ -127,12 +128,39 @@ class AnalyticController {
                 },
                 order: [['created_at', 'ASC']]
             });
-            res.json({ status: true, data: analyticsData });
+
+            const deviceData = await UserDevice.findOne({
+                where: {
+                    session_id: session_id
+                }
+            });
+            res.json({
+                status: true, data: {
+                    analytics: analyticsData,
+                    device_info: deviceData
+                }
+            });
         } catch (error) {
             console.error("Failed to list analytics:", error);
             return res.status(500).json({ status: false, error: "Failed to list analytics" });
         }
 
+    }
+
+    static async saveDeviceInfo(data) {
+        const { session_id, user_id, version, model, os_version } = data || {};
+
+        if (!session_id || !user_id) {
+            throw new Error('Required params are missing');
+        }
+
+        return await UserDevice.create({
+            session_id,
+            user_id,
+            app_version: version,
+            model,
+            os_version
+        });
     }
 }
 
