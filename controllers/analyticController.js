@@ -3,6 +3,7 @@ const UserDevice = require('../models/UserDevice');
 const { Op } = require('sequelize');
 const sequelize = require('../config/db');
 const redisClient = require('../config/redis');
+const moment = require('moment');
 
 class AnalyticController {
     /**
@@ -38,10 +39,18 @@ class AnalyticController {
             const length = parseInt(req.body.length) || 10;
             const search = req.body.search || '';
             const user_id = req.body.user_id || '';
+            const start_date = req.body.start_date || moment().format('YYYY-MM-DD');
+            const end_date = req.body.end_date || moment().format('YYYY-MM-DD');
 
             const where = {};
             if (user_id) {
                 where.user_id = user_id;
+            }
+
+            if (start_date && end_date) {
+                where.created_at = {
+                    [Op.between]: [start_date, end_date]
+                };
             }
 
             if (search) {
@@ -96,7 +105,7 @@ class AnalyticController {
                 session_id: session.session_id,
                 user_id: session.user_id,
                 activity_count: session.activity_count || 0,
-                created_at: session.created_at,
+                created_at: moment(session.created_at).format('YYYY-MM-DD HH:mm:ss'),
                 status: activeSessionSet.has(session.session_id) ? 'active' : 'inactive'
             }));
 
