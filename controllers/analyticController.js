@@ -39,18 +39,26 @@ class AnalyticController {
             const length = parseInt(req.body.length) || 10;
             const search = req.body.search || '';
             const user_id = req.body.user_id || '';
-            const start_date = req.body.start_date || moment().format('YYYY-MM-DD');
-            const end_date = req.body.end_date || moment().format('YYYY-MM-DD');
+            const start_date = req.body.start_date || '';
+            const end_date = req.body.end_date || '';
 
             const where = {};
             if (user_id) {
                 where.user_id = user_id;
             }
 
-            if (start_date && end_date) {
-                where.created_at = {
-                    [Op.between]: [start_date, end_date]
-                };
+            if (start_date || end_date) {
+                const dateRange = {};
+
+                if (start_date) {
+                    dateRange[Op.gte] = moment(start_date).startOf('day').toDate();
+                }
+
+                if (end_date) {
+                    dateRange[Op.lte] = moment(end_date).endOf('day').toDate();
+                }
+
+                where.created_at = dateRange;
             }
 
             if (search) {
@@ -74,15 +82,11 @@ class AnalyticController {
                     'session_id',
                     'user_id',
                     [sequelize.fn('MIN', sequelize.col('created_at')), 'created_at'],
-                    [sequelize.fn('MAX', sequelize.col('created_at')), 'last_activity']
+                    [sequelize.fn('MAX', sequelize.col('created_at')), 'last_activity'],
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'activity_count']
                 ],
                 where,
                 group: ['session_id', 'user_id'],
-                attributes: [
-                    'session_id',
-                    'user_id',
-                    [sequelize.fn('COUNT', sequelize.col('id')), 'activity_count']
-                ],
                 order: [[sequelize.fn('MAX', sequelize.col('created_at')), 'DESC']],
                 limit: parseInt(length),
                 offset: parseInt(start),
