@@ -7,6 +7,8 @@ const AnalyticController = require('../controllers/analyticController');
 
 // Define API routes
 router.post('/sync-users', UserController.syncUsers);
+router.post('/user-devices', UserController.userDevices);
+
 router.post('/notifications', NotificationController.list);
 router.post('/notification/create', NotificationController.create);
 router.post('/notification/update', NotificationController.update);

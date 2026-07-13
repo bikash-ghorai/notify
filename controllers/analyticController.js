@@ -161,18 +161,32 @@ class AnalyticController {
     }
 
     static async saveDeviceInfo(data) {
-        const { session_id, user_id, version, device_name, system_version } = data || {};
+        const {
+            session_id,
+            user_id,
+            version,
+            device_id,
+            brand,
+            device_name,
+            base_os,
+            system_version,
+            battery_level,
+            network_type
+        } = data || {};
 
         if (!session_id || !user_id) {
             throw new Error('Required params are missing');
         }
 
         return await UserDevice.create({
-            session_id,
-            user_id,
+            session_id: session_id,
+            user_id: user_id,
             app_version: version,
-            model: device_name,
-            os_version: system_version
+            device_id: device_id,
+            model: brand+' '+device_name,
+            os_version: base_os+' '+system_version,
+            battery_level: battery_level,
+            network_type: network_type
         });
     }
 }

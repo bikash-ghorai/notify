@@ -19,13 +19,25 @@ module.exports = {
             },
             app_version: {
                 type: Sequelize.STRING(255),
-                allowNull: true
+                allowNull: false
+            },
+            device_id: {
+                type: Sequelize.STRING(255),
+                allowNull: false
             },
             model: {
                 type: Sequelize.STRING(255),
-                allowNull: true
+                allowNull: false
             },
             os_version: {
+                type: Sequelize.STRING(255),
+                allowNull: true
+            },
+            battery_level: {
+                type: Sequelize.STRING(255),
+                allowNull: true
+            },
+            network_type: {
                 type: Sequelize.STRING(255),
                 allowNull: true
             },

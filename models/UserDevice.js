@@ -20,13 +20,25 @@ UserDevice.init({
     },
     app_version: {
         type: DataTypes.STRING(255),
-        allowNull: true
+        allowNull: false
+    },
+    device_id: {
+        type: DataTypes.STRING(255),
+        allowNull: false
     },
     model: {
         type: DataTypes.STRING(255),
-        allowNull: true
+        allowNull: false
     },
     os_version: {
+        type: DataTypes.STRING(255),
+        allowNull: true
+    },
+    battery_level: {
+        type: DataTypes.STRING(255),
+        allowNull: true
+    },
+    network_type: {
         type: DataTypes.STRING(255),
         allowNull: true
     }

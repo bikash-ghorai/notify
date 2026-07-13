@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const UserDevice = require('../models/UserDevice');
 
 class UserController {
     /**
@@ -65,6 +66,15 @@ class UserController {
             console.error("Database sync failed:", error);
             return res.status(500).json({ status: false, error: "Database sync failed" });
         }
+    }
+
+    static async userDevices(req, res) {
+        const { user_id } = req.body;
+        if (!user_id) {
+            return res.status(400).json({ status: false, error: "User ID is required" });
+        }
+        const devices = await UserDevice.findAll({ where: { user_id }, group: ['device_id'] });
+        return res.json({ status: true, devices });
     }
 }
 
