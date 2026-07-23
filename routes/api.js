@@ -22,6 +22,7 @@ router.post('/send-message-to-all', SocketController.sendMessageToAll);
 // For Analytics
 router.post('/analytics', AnalyticController.analytics);
 router.get('/analytics/:id', AnalyticController.analyticsBySessionId);
+router.post('/analytics/add-to-cart', AnalyticController.addToCart);
 
 module.exports = router;
 

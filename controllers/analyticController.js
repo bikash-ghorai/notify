@@ -157,7 +157,6 @@ class AnalyticController {
             console.error("Failed to list analytics:", error);
             return res.status(500).json({ status: false, error: "Failed to list analytics" });
         }
-
     }
 
     static async saveDeviceInfo(data) {
@@ -188,6 +187,50 @@ class AnalyticController {
             battery_level: battery_level,
             network_type: network_type
         });
+    }
+
+    static async addToCart(req, res) {
+        try {
+            const userIds = req.body.user_ids || [];
+
+            if (userIds.length < 1) {
+                return res.status(400).json({ status: false, error: "User ID is required" });
+            }
+
+            // Count click events for Add to Cart per user.
+            const analyticsData = await Analytics.findAll({
+                attributes: [
+                    'user_id',
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'add_to_cart']
+                ],
+                where: {
+                    action: 'click',
+                    name: 'Add to Cart',
+                    user_id: {
+                        [Op.in]: userIds
+                    }
+                },
+                group: ['user_id'],
+                raw: true
+            });
+
+            const countMap = analyticsData.reduce((acc, row) => {
+                acc[row.user_id] = parseInt(row.add_to_cart, 10) || 0;
+                return acc;
+            }, {});
+
+            const formattedData = userIds.map(userId => ({
+                user_id: userId,
+                add_to_cart: countMap[userId] || 0
+            }));
+
+            res.json({
+                status: true, data: formattedData
+            });
+        } catch (error) {
+            console.error("Failed to list analytics:", error);
+            return res.status(500).json({ status: false, error: "Failed to list analytics" });
+        }
     }
 }
 
