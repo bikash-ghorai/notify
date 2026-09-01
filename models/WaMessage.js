@@ -7,24 +7,20 @@ const WaMessage = sequelize.define('WaMessage', {
         primaryKey: true,
         allowNull: false,
     },
-    chat_jid: {
+    message_id: {
         type: DataTypes.STRING(100),
         allowNull: false,
     },
-    sender_jid: {
+    chat_id: {
         type: DataTypes.STRING(100),
         allowNull: false,
-    },
-    sender_name: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
     },
     message_type: {
         type: DataTypes.STRING(50),
-        defaultValue: 'conversation',
+        defaultValue: 'text', // text, image, video, document, etc.
     },
-    text: {
-        type: DataTypes.TEXT,
+    message: {
+        type: DataTypes.TEXT('long'),
         allowNull: true,
     },
     media_data: {
@@ -41,19 +37,11 @@ const WaMessage = sequelize.define('WaMessage', {
     },
     status: {
         type: DataTypes.STRING(50),
-        defaultValue: 'delivered',
-    },
-    timestamp: {
-        type: DataTypes.BIGINT,
-        allowNull: false,
-    },
+        defaultValue: 'delivered', // send, delivered, read, failed, etc.
+    }
 }, {
     tableName: 'wa_messages',
-    timestamps: false,
-    indexes: [
-        { fields: ['chat_jid'] },
-        { fields: ['timestamp'] },
-    ],
+    timestamps: true
 });
 
 module.exports = WaMessage;
