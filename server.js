@@ -8,6 +8,7 @@ const apiRoutes = require('./routes/api');
 const { startWorker } = require('./workers/notificationWorker');
 const AnalyticController = require('./controllers/analyticController');
 const redisClient = require('./config/redis');
+const { startWhatsApp } = require('./services/whatsappService');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,15 +22,17 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.set('io', io);
 
+// Global Authentication Middleware
 app.use((request, response, next) => {
     const token = request.headers['s-access-token'];
     if (token == process.env.AUTH_TOKEN) {
         next();
     } else {
-        response.json({ status: false, message: 'Authentication Failed', data: {} });
+        response.status(401).json({ status: false, message: 'Authentication Failed', data: {} });
     }
 });
 
@@ -133,10 +136,11 @@ cron.schedule('*/5 * * * *', () => {
     timezone: "Asia/Kolkata"
 });
 
-// 5. Start the HTTP server (instead of app.listen)
+// Start the HTTP server and WhatsApp Bridge
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`Notification microservice is running on port ${PORT}`);
+    await startWhatsApp(io);
 });
 
 module.exports = { io };
