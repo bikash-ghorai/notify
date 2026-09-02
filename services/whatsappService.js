@@ -66,7 +66,7 @@ async function startWhatsApp(socketIoInstance = null) {
     // Inbound Messages Listener
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
-        console.log(messages);
+        // console.log(messages);
 
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast') continue;
@@ -77,7 +77,7 @@ async function startWhatsApp(socketIoInstance = null) {
 
                 const isFromMe = Boolean(msg.key.fromMe);
                 if (isFromMe) continue; // Skip processing messages sent by the bot itself
-                
+
                 const messageType = Object.keys(messageData)[0];
                 const isMedia = ['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage'].includes(messageType);
                 const chatJid = msg.key.remoteJid;
@@ -104,41 +104,78 @@ async function startWhatsApp(socketIoInstance = null) {
                     text = messageData.conversation || messageData.extendedTextMessage?.text || '';
                 }
 
-                // 1. Upsert Chat Thread in Sequelize
+                // Update chat history in the database with chat id & last message & name
                 const clearNumber = phone.replace('91', '');
-                const chat = await WaChat.findOne({ where: { phone: clearNumber } });
-                if (!chat) {
-                    await WaChat.create({
-                        chat_id: chatJid,
+                let chat = await WaChat.findOne({ where: { phone: clearNumber } });
+                let msgType = isMedia ? messageType : 'textMessage';
+                if (chat) {
+                    if (!chat.chat_jid) {
+                        await WaChat.update({
+                            chat_jid: chatJid,
+                            name: msg.pushName || ''
+                        }, { where: { phone: clearNumber } });
+                    }
+
+                    await WaChat.update({
+                        last_message: text || msgType || '',
+                        last_message_at: new Date(),
+                        unread_count: chat.unread_count + 1
+                    }, { where: { phone: clearNumber } });
+                } else {
+                    chat = await WaChat.create({
+                        chat_jid: chatJid,
+                        name: msg.pushName || '',
                         phone: clearNumber,
-                        last_message: text || messageType || '',
+                        last_message: text || msgType || '',
                         last_message_at: new Date(),
                         unread_count: 1,
                         zone_ids: [],
                     });
                 }
 
-                await WaChat.increment('unread_count', { by: 1, where: { chat_id: chatJid } });
-
-                // 2. Insert Message into Sequelize
+                // Store the message in the database
                 await WaMessage.create({
+                    chat_id: chat.id,
                     message_id: msg.key.id,
-                    chat_id: chatJid,
-                    message_type: messageType,
-                    text: text,
+                    message_type: msgType,
+                    message: text,
                     media_data: mediaBase64,
                     mime_type: mimeType,
                     is_from_me: false,
-                    status: 'delivered'
+                    status: 'Send'
                 });
 
                 io.emit('whatsapp', { status: 'New Message' });
-
             } catch (error) {
                 console.error('[WhatsApp Incoming Error]:', error.message);
             }
         }
     });
+
+    // Handle message status updates
+    sock.ev.on('messages.update', async (updates) => {
+        for (const { key, update } of updates) {
+            if (update.status) {
+                // 1 = sent, 2 = received, 3 = read, 4 = played
+                console.log(`Message ${key.id} status: ${update.status}`)
+                try {
+                    let status = '';
+                    if (update.status == 3) {
+                        status = 'Delivered';
+                    } else if (update.status == 4) {
+                        status = 'Read';
+                    } else {
+                        status = 'Unknown';
+                    }
+                    if (status == 'Unknown' || status == '') continue; // Skip if status is unknown
+                    await WaMessage.update({ status: status }, { where: { message_id: key.id } });
+                    io.emit('whatsapp', { status: 'Update Message Status' });
+                } catch (error) {
+                    console.error('Error updating message status:', error.message);
+                }
+            }
+        }
+    })
 }
 
 // Send Message

@@ -3,15 +3,16 @@ const sequelize = require('../config/db');
 
 const WaMessage = sequelize.define('WaMessage', {
     id: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.INTEGER,
         primaryKey: true,
+        allowNull: false,
+        autoIncrement: true,
+    },
+    chat_id: {
+        type: DataTypes.STRING(100),
         allowNull: false,
     },
     message_id: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
-    },
-    chat_id: {
         type: DataTypes.STRING(100),
         allowNull: false,
     },
@@ -36,11 +37,12 @@ const WaMessage = sequelize.define('WaMessage', {
         defaultValue: false,
     },
     status: {
-        type: DataTypes.STRING(50),
-        defaultValue: 'delivered', // send, delivered, read, failed, etc.
+        type: DataTypes.ENUM('Send', 'Delivered', 'Read', 'Failed'),
+        defaultValue: 'Send',
     }
 }, {
     tableName: 'wa_messages',
+    underscored: true,
     timestamps: true
 });
 

@@ -6,11 +6,15 @@ const WaChat = sequelize.define('WaChat', {
         type: DataTypes.INTEGER,
         autoIncrement: true,
         primaryKey: true,
-    },
-    chat_id: {
-        type: DataTypes.STRING(100),
         allowNull: false,
-        unique: true,
+    },
+    chat_jid: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+    },
+    name: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
     },
     phone: {
         type: DataTypes.STRING(50),
@@ -32,10 +36,15 @@ const WaChat = sequelize.define('WaChat', {
     zone_ids: {
         type: DataTypes.JSON,
         defaultValue: []
+    },
+    flag: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
     }
 }, {
     tableName: 'wa_chats',
-    timestamps: false
+    underscored: true,
+    timestamps: true
 });
 
 module.exports = WaChat;

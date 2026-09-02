@@ -4,50 +4,53 @@ module.exports = {
     async up(queryInterface, Sequelize) {
         await queryInterface.createTable('wa_messages', {
             id: {
-                type: DataTypes.STRING(100),
+                type: Sequelize.INTEGER,
                 primaryKey: true,
+                autoIncrement: true,
                 allowNull: false,
             },
-            chat_jid: {
-                type: DataTypes.STRING(100),
+            chat_id: {
+                type: Sequelize.STRING(100),
                 allowNull: false,
             },
-            sender_jid: {
-                type: DataTypes.STRING(100),
+            message_id: {
+                type: Sequelize.STRING(100),
                 allowNull: false,
-            },
-            sender_name: {
-                type: DataTypes.STRING(255),
-                allowNull: true,
             },
             message_type: {
-                type: DataTypes.STRING(50),
-                defaultValue: 'conversation',
+                type: Sequelize.STRING(50),
+                defaultValue: 'text', // text, image, video, document, etc.
             },
-            text: {
-                type: DataTypes.TEXT,
+            message: {
+                type: Sequelize.TEXT('long'),
                 allowNull: true,
             },
             media_data: {
-                type: DataTypes.TEXT('long'),
+                type: Sequelize.TEXT('long'), // LONGTEXT for Base64 or URLs
                 allowNull: true,
             },
             mime_type: {
-                type: DataTypes.STRING(100),
+                type: Sequelize.STRING(100),
                 allowNull: true,
             },
             is_from_me: {
-                type: DataTypes.BOOLEAN,
+                type: Sequelize.BOOLEAN,
                 defaultValue: false,
             },
             status: {
-                type: DataTypes.STRING(50),
-                defaultValue: 'delivered',
+                type: Sequelize.ENUM('Send', 'Delivered', 'Read', 'Failed'),
+                defaultValue: 'Send',
             },
-            timestamp: {
-                type: DataTypes.BIGINT,
+            created_at: {
                 allowNull: false,
+                type: Sequelize.DATE,
+                defaultValue: Sequelize.NOW
             },
+            updated_at: {
+                allowNull: false,
+                type: Sequelize.DATE,
+                defaultValue: Sequelize.NOW
+            }
         });
     },
     async down(queryInterface, Sequelize) {

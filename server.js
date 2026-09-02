@@ -140,7 +140,7 @@ cron.schedule('*/5 * * * *', () => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
     console.log(`Notification microservice is running on port ${PORT}`);
-    // await startWhatsApp(io);
+    await startWhatsApp(io);
 });
 
 module.exports = { io };

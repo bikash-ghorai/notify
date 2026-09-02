@@ -3,31 +3,54 @@
 module.exports = {
     async up(queryInterface, Sequelize) {
         await queryInterface.createTable('wa_chats', {
-            jid: {
-                type: DataTypes.STRING(100),
+            id: {
+                type: Sequelize.INTEGER,
                 primaryKey: true,
+                autoIncrement: true,
                 allowNull: false,
             },
+            chat_jid: {
+                type: Sequelize.STRING(100),
+                allowNull: true,
+            },
             name: {
-                type: DataTypes.STRING(255),
+                type: Sequelize.STRING(255),
                 allowNull: true,
             },
             phone: {
-                type: DataTypes.STRING(50),
+                type: Sequelize.STRING(50),
                 allowNull: true,
             },
             last_message: {
-                type: DataTypes.TEXT,
+                type: Sequelize.TEXT,
                 allowNull: true,
             },
             last_message_at: {
-                type: DataTypes.DATE,
+                type: Sequelize.DATE,
                 allowNull: true,
             },
             unread_count: {
-                type: DataTypes.INTEGER,
+                type: Sequelize.INTEGER,
                 defaultValue: 0,
             },
+            zone_ids: {
+                type: Sequelize.JSON,
+                defaultValue: []
+            },
+            flag: {
+                type: Sequelize.STRING(50),
+                allowNull: true,
+            },
+            created_at: {
+                allowNull: false,
+                type: Sequelize.DATE,
+                defaultValue: Sequelize.NOW
+            },
+            updated_at: {
+                allowNull: false,
+                type: Sequelize.DATE,
+                defaultValue: Sequelize.NOW
+            }
         });
     },
     async down(queryInterface, Sequelize) {

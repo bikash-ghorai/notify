@@ -62,19 +62,24 @@ class WhatsappController {
         }
 
         try {
+            const chat = await WaChat.findOne({ where: { id: chatId } });
+            if (!chat) {
+                return res.json({ status: false, message: 'Chat not found.', data: [] });
+            }
+
             const messages = await WaMessage.findAll({
                 where: { chat_id: chatId },
-                order: [['timestamp', 'ASC']],
+                order: [['created_at', 'ASC']],
                 limit: parseInt(limit, 10),
                 offset: parseInt(offset, 10),
             });
 
             // Mark unread messages as read
-            await WaChat.update({ unread_count: 0 }, { where: { chat_id: chatId } });
+            await WaChat.update({ unread_count: 0 }, { where: { id: chatId } });
 
-            return res.json({ status: true, message: 'Messages fetched successfully.', data: messages });
+            return res.json({ status: true, message: 'Messages fetched successfully.', data: { chat: chat, messages: messages } });
         } catch (error) {
-            return res.status(500).json({ status: false, message: error.message, data: [] });
+            return res.json({ status: false, message: error.message, data: [] });
         }
     }
 
@@ -91,18 +96,24 @@ class WhatsappController {
 
         try {
             // Check for new chat or not
-            const chat = await WaChat.findOne({ where: { phone: phone } });
-            let to = chat ? chat.chat_id : `91${phone}@s.whatsapp.net`;
+            let chat = await WaChat.findOne({ where: { phone: phone } });
+            let to = chat ? chat.chat_jid : `91${phone}@s.whatsapp.net`;
             if (!chat) {
                 // check have whatsapp or not
                 const isWhatsapp = await whatsappService.haveWhatsapp(to);
                 if (!isWhatsapp) {
                     return res.json({ status: false, message: 'The provided number is not registered on WhatsApp.', data: {} });
                 }
+
+                chat = await WaChat.create({
+                    phone: to,
+                    last_message: text || mediaUrl || req.file?.originalname || '',
+                    last_message_at: new Date()
+                });
             }
 
             if (mediaUrl || req.file) {
-                const resolvedType = type || (req.file?.mimetype.startsWith('image/') ? 'image' : 'document');
+                const resolvedType = req.file?.mimetype.startsWith('image/') ? 'imageMessage' : 'documentMessage';
 
                 const result = await whatsappService.sendMediaMessage({
                     to,
@@ -114,36 +125,40 @@ class WhatsappController {
                     originalName: req.file ? req.file.originalname : 'file'
                 });
 
-                // Create a new chat
-                // await WaChat.create({ chat_id: result.key.id, phone: to, last_message: text || mediaUrl || req.file?.originalname || '', last_message_at: new Date() });
-
                 // Store the media message in the database
-                // await WaMessage.create({
-                //     id: messageId,
-                //     chat_jid: to,
-                //     sender_jid: 'me',
-                //     sender_name: 'Agent',
-                //     message_type: `${type}Message`,
-                //     text: text || '',
-                //     media_data: mediaUrl || (file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : ''),
-                //     mime_type: file ? file.mimetype : null,
-                //     is_from_me: true,
-                //     status: 'sent',
-                //     timestamp: Math.floor(Date.now() / 1000),
-                // });
+                await WaMessage.create({
+                    chat_id: chat.id,
+                    message_id: result.key.id,
+                    message_type: resolvedType,
+                    message: text || '',
+                    media_data: mediaUrl || (req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : ''),
+                    mime_type: req.file ? req.file.mimetype : null,
+                    is_from_me: true,
+                    status: 'Send'
+                });
 
-                return res.json({ status: true, message: 'Media sent successfully', messageId: {} });
+                return res.json({ status: true, message: 'Media sent successfully', data: result });
             } else {
                 const result = await whatsappService.sendTextMessage(to, text);
-                console.log('Text message sent result:', result);
+                // console.log('Text message sent result:', result);
 
                 // Store the text message in the database
-                // await storeMessageInDB(to, text, null, null, 'text', result.key.id);
+                await WaMessage.create({
+                    chat_id: chat.id,
+                    message_id: result.key.id,
+                    message_type: 'textMessage',
+                    message: text,
+                    media_data: null,
+                    mime_type: null,
+                    is_from_me: true,
+                    status: 'Send'
+                });
 
-                return res.json({ status: true, message: 'Message sent successfully', messageId: {} });
+                return res.json({ status: true, message: 'Message sent successfully', data: result });
             }
         } catch (error) {
-            return res.status(500).json({ status: false, message: error.message });
+            console.error('Error sending message:', error.message);
+            return res.json({ status: false, message: error.message, data: {} });
         }
     }
 }
