@@ -6,8 +6,9 @@ const {
     downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
+const WaChat = require('../models/WaChat');
+const WaMessage = require('../models/WaMessage');
 
 let sock = null;
 let isConnected = false;
@@ -62,56 +63,6 @@ async function startWhatsApp(socketIoInstance = null) {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // Initial History Sync from WhatsApp
-    // sock.ev.on('messaging-history.set', async ({ chats, messages }) => {
-    //     try {
-    //         console.log(`[WhatsApp] Syncing history: ${chats?.length || 0} chats, ${messages?.length || 0} messages.`);
-
-    //         if (chats) {
-    //             for (const chat of chats) {
-    //                 const phone = chat.id.split('@')[0];
-    //                 await WaChat.upsert({
-    //                     jid: chat.id,
-    //                     name: chat.name || phone,
-    //                     phone: phone,
-    //                     last_message: '',
-    //                     last_message_at: chat.conversationTimestamp ? new Date(chat.conversationTimestamp * 1000) : new Date(),
-    //                 });
-    //             }
-    //         }
-
-    //         if (messages) {
-    //             for (const msg of messages) {
-    //                 if (msg.key.remoteJid === 'status@broadcast') continue;
-    //                 const messageData = msg.message;
-    //                 if (!messageData) continue;
-
-    //                 const messageType = Object.keys(messageData)[0];
-    //                 const text = messageData.conversation || messageData.extendedTextMessage?.text || messageData[messageType]?.caption || '';
-    //                 const chatJid = msg.key.remoteJid;
-    //                 const phone = chatJid.split('@')[0];
-
-    //                 await WaMessage.findOrCreate({
-    //                     where: { id: msg.key.id },
-    //                     defaults: {
-    //                         id: msg.key.id,
-    //                         chat_jid: chatJid,
-    //                         sender_jid: msg.key.participant || chatJid,
-    //                         sender_name: msg.pushName || phone,
-    //                         message_type: messageType,
-    //                         text: text,
-    //                         is_from_me: msg.key.fromMe ? true : false,
-    //                         status: 'delivered',
-    //                         timestamp: msg.messageTimestamp || Math.floor(Date.now() / 1000),
-    //                     },
-    //                 });
-    //             }
-    //         }
-    //     } catch (error) {
-    //         console.error('[WhatsApp History Sync Error]:', error.message);
-    //     }
-    // });
-
     // Inbound Messages Listener
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
@@ -130,9 +81,9 @@ async function startWhatsApp(socketIoInstance = null) {
                 const messageType = Object.keys(messageData)[0];
                 const isMedia = ['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage'].includes(messageType);
                 const chatJid = msg.key.remoteJid;
-                const chatNoId = msg.key.remoteJidAlt ? msg.key.remoteJidAlt.split('@')[0] : chatJid.split('@')[0];
-                const phone = chatJid.split('@')[0];
-                const senderName = msg.pushName || phone;
+                const remoteJidAlt = msg.key.remoteJidAlt ? msg.key.remoteJidAlt : chatJid;
+                const phone = remoteJidAlt.split('@')[0];
+                if (!phone.startsWith('91')) continue; // Skip if phone number is not available
 
                 let mediaBase64 = null;
                 let mimeType = null;
@@ -153,57 +104,36 @@ async function startWhatsApp(socketIoInstance = null) {
                     text = messageData.conversation || messageData.extendedTextMessage?.text || '';
                 }
 
-                const timestamp = Number(msg.messageTimestamp) || Math.floor(Date.now() / 1000);
-                const messageDate = new Date(timestamp * 1000);
+                // 1. Upsert Chat Thread in Sequelize
+                const clearNumber = phone.replace('91', '');
+                const chat = await WaChat.findOne({ where: { phone: clearNumber } });
+                if (!chat) {
+                    await WaChat.create({
+                        chat_id: chatJid,
+                        phone: clearNumber,
+                        last_message: text || messageType || '',
+                        last_message_at: new Date(),
+                        unread_count: 1,
+                        zone_ids: [],
+                    });
+                }
 
-                // // 1. Upsert Chat Thread in Sequelize
-                // await WaChat.upsert({
-                //     jid: chatJid,
-                //     name: senderName,
-                //     phone: phone,
-                //     last_message: text || (isMedia ? `[${messageType}]` : ''),
-                //     last_message_at: messageDate,
-                // });
+                await WaChat.increment('unread_count', { by: 1, where: { chat_id: chatJid } });
 
-                // if (!isFromMe) {
-                //     await WaChat.increment('unread_count', { by: 1, where: { jid: chatJid } });
-                // }
+                // 2. Insert Message into Sequelize
+                await WaMessage.create({
+                    message_id: msg.key.id,
+                    chat_id: chatJid,
+                    message_type: messageType,
+                    text: text,
+                    media_data: mediaBase64,
+                    mime_type: mimeType,
+                    is_from_me: false,
+                    status: 'delivered'
+                });
 
-                // // 2. Insert Message into Sequelize
-                // await WaMessage.findOrCreate({
-                //     where: { id: msg.key.id },
-                //     defaults: {
-                //         id: msg.key.id,
-                //         chat_jid: chatJid,
-                //         sender_jid: msg.key.participant || chatJid,
-                //         sender_name: senderName,
-                //         message_type: messageType,
-                //         text: text,
-                //         media_data: mediaBase64,
-                //         mime_type: mimeType,
-                //         is_from_me: isFromMe,
-                //         status: 'delivered',
-                //         timestamp: timestamp,
-                //     },
-                // });
+                io.emit('whatsapp', { status: 'New Message' });
 
-                // // 3. Emit via Socket.IO for live UI updates
-                // if (io) {
-                //     io.emit('whatsapp', {
-                //         type: 'incoming',
-                //         message_id: msg.key.id,
-                //         chat_jid: chatJid,
-                //         sender_jid: msg.key.participant || chatJid,
-                //         sender_name: senderName,
-                //         text: text,
-                //         has_media: isMedia,
-                //         media: mediaBase64,
-                //         mime_type: mimeType,
-                //         is_from_me: isFromMe,
-                //         timestamp: timestamp,
-                //         created_at: messageDate.toISOString(),
-                //     });
-                // }
             } catch (error) {
                 console.error('[WhatsApp Incoming Error]:', error.message);
             }
@@ -211,126 +141,40 @@ async function startWhatsApp(socketIoInstance = null) {
     });
 }
 
-// // Send Message
-// async function sendMessage(phone, text) {
-//     // Correct: country code + digits only, no symbols
-//     const noId = `91${phone}@s.whatsapp.net`;
+// Send Message
+async function sendTextMessage(to, text) {
+    if (!isConnected || !sock) throw new Error('WhatsApp service is disconnected');
 
-//     // Verify the number exists on WhatsApp before messaging
-//     const [result] = await sock.onWhatsApp(noId);
-//     if (result?.exists) {
-//         let jid = result.jid;
-//         const sentMessage = await sock.sendMessage(jid, { text });
+    const result = await sock.sendMessage(to, { text });
+    return result;
+}
 
-//         const now = new Date();
-//         await WaChat.upsert({
-//             jid,
-//             phone: phone,
-//             last_message: text,
-//             last_message_at: now,
-//         });
+// Send Media Message
+async function sendMediaMessage({ to, fileBuffer, mediaUrl, caption, mimeType, type, originalName }) {
+    if (!isConnected || !sock) throw new Error('WhatsApp service is disconnected');
 
-//         await WaMessage.create({
-//             id: result.key.id,
-//             chat_jid: jid,
-//             sender_jid: 'me',
-//             sender_name: 'Agent',
-//             message_type: 'conversation',
-//             text: text,
-//             is_from_me: true,
-//             status: 'sent',
-//             timestamp: timestamp,
-//         });
-//         return { success: true, message: 'Message sent successfully.', data: sentMessage };
-//     } else {
-//         return { success: false, message: `The number ${phone} is not registered on WhatsApp.` };
-//     }
-// }
+    const mediaSource = fileBuffer ? fileBuffer : { url: mediaUrl };
 
-// async function sendTextMessage(to, text) {
-//     if (!isConnected || !sock) throw new Error('WhatsApp service is disconnected');
+    let payload = {};
+    if (type === 'image') {
+        payload = { image: mediaSource, caption: caption || '' };
+    } else if (type === 'audio') {
+        payload = { audio: mediaSource, mimetype: mimeType || 'audio/mp4', ptt: true };
+    } else if (type === 'video') {
+        payload = { video: mediaSource, caption: caption || '' };
+    } else {
+        payload = {
+            document: mediaSource,
+            mimetype: mimeType || 'application/octet-stream',
+            fileName: originalName || 'file',
+            caption: caption || '',
+        };
+    }
 
-//     const cleanNumber = to.replace(/\D/g, '');
-//     const jid = to.includes('@s.whatsapp.net') ? to : `${cleanNumber}@s.whatsapp.net`;
-//     const result = await sock.sendMessage(jid, { text });
+    const result = await sock.sendMessage(to, payload);
 
-//     const timestamp = Math.floor(Date.now() / 1000);
-//     const now = new Date();
-
-//     await WaChat.upsert({
-//         jid,
-//         phone: cleanNumber,
-//         last_message: text,
-//         last_message_at: now,
-//     });
-
-//     await WaMessage.create({
-//         id: result.key.id,
-//         chat_jid: jid,
-//         sender_jid: 'me',
-//         sender_name: 'Agent',
-//         message_type: 'conversation',
-//         text: text,
-//         is_from_me: true,
-//         status: 'sent',
-//         timestamp: timestamp,
-//     });
-
-//     return result;
-// }
-
-// // Send Media Message
-// async function sendMediaMessage({ to, fileBuffer, mediaUrl, caption, mimeType, type, originalName }) {
-//     if (!isConnected || !sock) throw new Error('WhatsApp service is disconnected');
-
-//     const cleanNumber = to.replace(/\D/g, '');
-//     const jid = to.includes('@s.whatsapp.net') ? to : `${cleanNumber}@s.whatsapp.net`;
-//     const mediaSource = fileBuffer ? fileBuffer : { url: mediaUrl };
-
-//     let payload = {};
-//     if (type === 'image') {
-//         payload = { image: mediaSource, caption: caption || '' };
-//     } else if (type === 'audio') {
-//         payload = { audio: mediaSource, mimetype: mimeType || 'audio/mp4', ptt: true };
-//     } else if (type === 'video') {
-//         payload = { video: mediaSource, caption: caption || '' };
-//     } else {
-//         payload = {
-//             document: mediaSource,
-//             mimetype: mimeType || 'application/octet-stream',
-//             fileName: originalName || 'file',
-//             caption: caption || '',
-//         };
-//     }
-
-//     const result = await sock.sendMessage(jid, payload);
-//     const timestamp = Math.floor(Date.now() / 1000);
-//     const now = new Date();
-//     const mediaBase64 = fileBuffer ? `data:${mimeType};base64,${fileBuffer.toString('base64')}` : mediaUrl;
-
-//     await WaChat.upsert({
-//         jid,
-//         phone: cleanNumber,
-//         last_message: caption || `[${type}]`,
-//         last_message_at: now,
-//     });
-
-//     await WaMessage.create({
-//         id: result.key.id,
-//         chat_jid: jid,
-//         sender_jid: 'me',
-//         sender_name: 'Agent',
-//         message_type: `${type}Message`,
-//         text: caption || '',
-//         media_data: mediaBase64,
-//         mime_type: mimeType,
-//         is_from_me: true,
-//         status: 'sent',
-//         timestamp: timestamp,
-//     });
-
-//     return result;
-// }
+    return result;
+}
 
 function getStatus() {
     return isConnected;
@@ -358,4 +202,7 @@ module.exports = {
     startWhatsApp,
     getStatus,
     getQR,
+    haveWhatsapp,
+    sendTextMessage,
+    sendMediaMessage
 };
