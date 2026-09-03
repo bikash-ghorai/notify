@@ -99,14 +99,15 @@ class WhatsappController {
             let to = chat ? chat.chat_jid : `91${phone}@s.whatsapp.net`;
             if (!chat) {
                 // check have whatsapp or not
-                const isWhatsapp = await whatsappService.haveWhatsapp(to);
+                const isWhatsapp = await whatsappService.haveWhatsapp(phone);
                 if (!isWhatsapp) {
                     return res.json({ status: false, message: 'The provided number is not registered on WhatsApp.', data: {} });
                 }
 
-                let lastMessage = text || image ? 'imageMessage' : '';
+                let lastMessage = text ? text : image ? 'imageMessage' : '';
                 chat = await WaChat.create({
-                    phone: to,
+                    phone: phone,
+                    name: phone,
                     last_message: lastMessage,
                     last_message_at: new Date(),
                     unread_count: 0,
