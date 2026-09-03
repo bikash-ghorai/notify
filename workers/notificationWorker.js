@@ -3,7 +3,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { getMessaging } = require('../config/firebase');
 
-async function startWorker() {
+async function startNotifier() {
     console.log(`[Worker] Started checking for scheduled notifications at: ${new Date().toISOString()}`);
     try {
         // 1. Fetch pending notifications scheduled to be sent now or in the past
@@ -21,14 +21,10 @@ async function startWorker() {
             return;
         }
 
-        console.log(`[Worker] Found ${pendingNotifications.length} notification(s) to process.`);
-
         for (const notification of pendingNotifications) {
-            console.log(`[Worker] Processing notification ID: ${notification.id} - "${notification.title}"`);
-
             // Immediately change status to 'In Progress' to lock it
-            // notification.status = 'In Progress';
-            // await notification.save();
+            notification.status = 'In Progress';
+            await notification.save();
 
             try {
                 // 2. Query target users in the specified zone
@@ -64,8 +60,6 @@ async function startWorker() {
                     await notification.save();
                     continue;
                 }
-
-                console.log(`[Worker] Sending to ${tokens.length} FCM token(s) for Notification ID ${notification.id}...`);
 
                 // 3. Send notifications in batches of 500 (FCM limit for multicast)
                 const messaging = getMessaging();
@@ -106,8 +100,6 @@ async function startWorker() {
                     failureCount += response.failureCount;
                 }
 
-                console.log(`[Worker] Notification ID ${notification.id} completed. Successes: ${successCount}, Failures: ${failureCount}`);
-
                 notification.status = 'Sent';
                 notification.success = successCount;
                 notification.failed = failureCount;
@@ -121,8 +113,8 @@ async function startWorker() {
             }
         }
     } catch (error) {
-        console.error('[Worker] Fatal error running startWorker:', error);
+        console.error('[Worker] Fatal error running startNotifier:', error);
     }
 }
 
-module.exports = { startWorker };
+module.exports = { startNotifier };

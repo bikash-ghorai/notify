@@ -38,6 +38,10 @@ module.exports = {
         allowNull: false,
         defaultValue: 0
       },
+      have_whatsapp: {
+        type: Sequelize.BOOLEAN,
+        allowNull: true
+      },
       status: {
         type: Sequelize.STRING(50),
         allowNull: false

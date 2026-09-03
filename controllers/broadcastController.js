@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
-const Notification = require('../models/Notification');
+const WaBroadcast = require('../models/WaBroadcast');
 
-class NotificationController {
+class BroadcastController {
     static async list(req, res) {
         try {
             const draw = req.body.draw || req.query.draw || 0;
@@ -16,8 +16,7 @@ class NotificationController {
             if (search) {
                 whereClause = {
                     [Op.or]: [
-                        { title: { [Op.like]: `%${search}%` } },
-                        { body: { [Op.like]: `%${search}%` } },
+                        { caption: { [Op.like]: `%${search}%` } },
                         { zone_id: { [Op.like]: `%${search}%` } },
                         { notify_to: { [Op.like]: `%${search}%` } },
                         { status: { [Op.like]: `%${search}%` } }
@@ -32,10 +31,10 @@ class NotificationController {
             }
 
             // Get total records count (before filter)
-            const totalRecords = await Notification.count();
+            const totalRecords = await WaBroadcast.count();
 
             // Get filtered records and count
-            const { count: filteredCount, rows: notifications } = await Notification.findAndCountAll({
+            const { count: filteredCount, rows: broadcasts } = await WaBroadcast.findAndCountAll({
                 where: whereClause,
                 offset: offset,
                 limit: length,
@@ -49,56 +48,59 @@ class NotificationController {
                 draw: draw,
                 recordsTotal: totalRecords,
                 recordsFiltered: filteredCount,
-                data: notifications,
+                data: broadcasts,
             });
         } catch (error) {
-            console.error("Failed to list notifications:", error);
-            return res.json({ status: false, message: error.message || "Failed to list broadcasts", data: [] });
+            console.error("Failed to list broadcasts:", error);
+            return res.json({ status: false, message: error.message, data: [] });
         }
     }
 
     static async create(req, res) {
-        const { title, body, scheduled_at, zone_id, notify_to } = req.body;
+        const { caption, image, mime_type, scheduled_at, zone_id, notify_to } = req.body;
 
-        if (!title || !body || !scheduled_at || !zone_id || !notify_to) {
+        if ((!caption && !image) || (image && !mime_type) || !scheduled_at || !zone_id || !notify_to) {
             return res.json({ status: false, message: "Invalid request data" });
         }
         try {
-            const notification = await Notification.create({
-                title,
-                body,
+            const broadcast = await WaBroadcast.create({
+                caption,
+                image,
+                mime_type,
                 scheduled_at,
                 zone_id,
                 notify_to,
                 status: 'Pending'
             });
-            return res.json({ status: true, message: "Notification scheduled successfully.", data: notification });
+            return res.json({ status: true, message: "Broadcast scheduled successfully.", data: broadcast });
         } catch (error) {
             console.error("Failed to process trigger:", error);
-            return res.status(500).json({ status: false, error: "Failed to schedule notification" });
+            return res.json({ status: false, message: error.message, data: {} });
         }
     }
 
     static async update(req, res) {
-        const { id, title, body, scheduled_at, zone_id, notify_to } = req.body;
-        if (!id || !title || !body || !scheduled_at || !zone_id || !notify_to) {
+        const { id, caption, image, mime_type, scheduled_at, zone_id, notify_to } = req.body;
+
+        if (!id || (!caption && !image) || (image && !mime_type) || !scheduled_at || !zone_id || !notify_to) {
             return res.json({ status: false, message: "Invalid request data" });
         }
         try {
-            await Notification.update({
-                title,
-                body,
+            await WaBroadcast.update({
+                caption,
+                image,
+                mime_type,
                 scheduled_at,
                 zone_id,
                 notify_to
             }, {
                 where: { id }
             });
-            const notification = await Notification.findByPk(id);
-            return res.json({ status: true, message: "Notification updated successfully.", data: notification });
+            const broadcast = await WaBroadcast.findByPk(id);
+            return res.json({ status: true, message: "Broadcast updated successfully.", data: broadcast });
         } catch (error) {
             console.error("Failed to process trigger:", error);
-            return res.status(500).json({ status: false, error: "Failed to update notification" });
+            return res.json({ status: false, message: error.message, data: {} });
         }
     }
 
@@ -108,11 +110,11 @@ class NotificationController {
             return res.json({ status: false, message: "Invalid request data" });
         }
         try {
-            const notification = await Notification.findByPk(id);
-            return res.json({ status: true, message: "Notification data successfully.", data: notification });
+            const broadcast = await WaBroadcast.findByPk(id);
+            return res.json({ status: true, message: "Broadcast data successfully.", data: broadcast });
         } catch (error) {
             console.error("Failed to process trigger:", error);
-            return res.status(500).json({ status: false, error: "Failed to update notification status" });
+            return res.json({ status: false, message: error.message, data: {} });
         }
     }
 
@@ -122,18 +124,18 @@ class NotificationController {
             return res.json({ status: false, message: "Invalid request data" });
         }
         try {
-            const notification = await Notification.destroy({
+            const broadcast = await WaBroadcast.destroy({
                 where: {
                     id
                 }
             });
-            return res.json({ status: true, message: "Notification deleted successfully.", data: notification });
+            return res.json({ status: true, message: "Broadcast deleted successfully.", data: broadcast });
         } catch (error) {
             console.error("Failed to process trigger:", error);
-            return res.status(500).json({ status: false, error: "Failed to update notification status" });
+            return res.json({ status: false, message: error.message, data: {} });
         }
     }
 }
 
-module.exports = NotificationController;
+module.exports = BroadcastController;
 

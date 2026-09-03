@@ -12,7 +12,7 @@ WaBroadcast.init({
     },
     caption: {
         type: DataTypes.STRING(255),
-        allowNull: false
+        allowNull: true
     },
     image: {
         type: DataTypes.TEXT('long'), // LONGTEXT for Base64 or URLs

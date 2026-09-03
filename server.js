@@ -5,7 +5,8 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const cors = require('cors');
 const apiRoutes = require('./routes/api');
-const { startWorker } = require('./workers/notificationWorker');
+const { startNotifier } = require('./workers/notificationWorker');
+const { startBroadcast } = require('./workers/whatsappWorker');
 const AnalyticController = require('./controllers/analyticController');
 const redisClient = require('./config/redis');
 const { startWhatsApp } = require('./services/whatsappService');
@@ -129,7 +130,15 @@ app.use('/api', apiRoutes);
 
 // Cron task
 cron.schedule('*/5 * * * *', () => {
-    startWorker();
+    startNotifier();
+    console.log('Automated task executed at:', new Date().toLocaleTimeString());
+}, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+});
+
+cron.schedule('*/15 * * * *', () => {
+    startBroadcast();
     console.log('Automated task executed at:', new Date().toLocaleTimeString());
 }, {
     scheduled: true,

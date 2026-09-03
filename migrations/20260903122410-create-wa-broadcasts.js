@@ -11,7 +11,7 @@ module.exports = {
             },
             caption: {
                 type: Sequelize.STRING(255),
-                allowNull: false
+                allowNull: true
             },
             image: {
                 type: Sequelize.TEXT('long'), // LONGTEXT for Base64 or URLs

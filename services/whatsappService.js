@@ -66,7 +66,6 @@ async function startWhatsApp(socketIoInstance = null) {
     // Inbound Messages Listener
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
-        // console.log(messages);
 
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast') continue;
@@ -100,8 +99,10 @@ async function startWhatsApp(socketIoInstance = null) {
                     mimeType = mediaObject.mimetype || 'application/octet-stream';
                     text = mediaObject.caption || '';
                     mediaBase64 = `data:${mimeType};base64,${mediaBuffer.toString('base64')}`;
-                } else {
+                } else if (messageData.conversation || messageData.extendedTextMessage?.text) {
                     text = messageData.conversation || messageData.extendedTextMessage?.text || '';
+                } else {
+                    continue; // Skip if message type is not supported
                 }
 
                 // Update chat history in the database with chat id & last message & name
@@ -157,7 +158,7 @@ async function startWhatsApp(socketIoInstance = null) {
         for (const { key, update } of updates) {
             if (update.status) {
                 // 1 = sent, 2 = received, 3 = read, 4 = played
-                console.log(`Message ${key.id} status: ${update.status}`)
+                // console.log(`Message ${key.id} status: ${update.status}`)
                 try {
                     let status = '';
                     if (update.status == 3) {
@@ -187,29 +188,35 @@ async function sendTextMessage(to, text) {
 }
 
 // Send Media Message
-async function sendMediaMessage({ to, fileBuffer, mediaUrl, caption, mimeType, type, originalName }) {
-    if (!isConnected || !sock) throw new Error('WhatsApp service is disconnected');
-
-    const mediaSource = fileBuffer ? fileBuffer : { url: mediaUrl };
-
-    let payload = {};
-    if (type === 'image') {
-        payload = { image: mediaSource, caption: caption || '' };
-    } else if (type === 'audio') {
-        payload = { audio: mediaSource, mimetype: mimeType || 'audio/mp4', ptt: true };
-    } else if (type === 'video') {
-        payload = { video: mediaSource, caption: caption || '' };
-    } else {
-        payload = {
-            document: mediaSource,
-            mimetype: mimeType || 'application/octet-stream',
-            fileName: originalName || 'file',
-            caption: caption || '',
-        };
+function normalizeMediaData(fileBuffer) {
+    if (Buffer.isBuffer(fileBuffer)) {
+        return fileBuffer;
     }
 
-    const result = await sock.sendMessage(to, payload);
+    if (fileBuffer instanceof Uint8Array) {
+        return Buffer.from(fileBuffer);
+    }
 
+    if (typeof fileBuffer === 'string') {
+        const dataUrlMatch = fileBuffer.match(/^data:[^;]+;base64,(.+)$/s);
+        const base64Data = dataUrlMatch ? dataUrlMatch[1] : fileBuffer;
+
+        if (dataUrlMatch || /^[A-Za-z0-9+/\s]+=*$/.test(base64Data)) {
+            return Buffer.from(base64Data.replace(/\s/g, ''), 'base64');
+        }
+    }
+
+    throw new Error('Media must be a Buffer, Uint8Array, or base64-encoded data URL.');
+}
+
+async function sendMediaMessage({ to, fileBuffer, mimeType, caption }) {
+    if (!isConnected || !sock) throw new Error('WhatsApp service is disconnected');
+
+    const mediaData = normalizeMediaData(fileBuffer);
+    let payload = { image: mediaData, caption: caption || '', mimetype: mimeType };
+
+    const result = await sock.sendMessage(to, payload);
+    
     return result;
 }
 

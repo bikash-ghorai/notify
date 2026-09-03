@@ -83,14 +83,14 @@ class WhatsappController {
     }
 
     static async sendWaMessage(req, res) {
-        const { phone, text, mediaUrl, type } = req.body;
+        const { phone, text, image, mimeType } = req.body;
 
         if (!phone) {
             return res.json({ status: false, message: 'Parameter "phone" is required.', data: [] });
         }
 
-        if (!text && !mediaUrl && !req.file) {
-            return res.json({ status: false, message: 'You must provide either "text", "mediaUrl", or a file upload.', data: [] });
+        if (!text && !image) {
+            return res.json({ status: false, message: 'You must provide either "text" or "image".', data: [] });
         }
 
         try {
@@ -104,34 +104,36 @@ class WhatsappController {
                     return res.json({ status: false, message: 'The provided number is not registered on WhatsApp.', data: {} });
                 }
 
+                let lastMessage = text || image ? 'imageMessage' : '';
                 chat = await WaChat.create({
                     phone: to,
-                    last_message: text || mediaUrl || req.file?.originalname || '',
-                    last_message_at: new Date()
+                    last_message: lastMessage,
+                    last_message_at: new Date(),
+                    unread_count: 0,
+                    zone_ids: []
                 });
             }
 
-            if (mediaUrl || req.file) {
-                const resolvedType = req.file?.mimetype.startsWith('image/') ? 'imageMessage' : 'documentMessage';
+            if (image) {
+                if (!mimeType) {
+                    return res.json({ status: false, message: 'You must provide mime type for the image.', data: [] });
+                }
 
                 const result = await whatsappService.sendMediaMessage({
                     to,
-                    fileBuffer: req.file ? req.file.buffer : null,
-                    mediaUrl,
+                    fileBuffer: image,
+                    mimeType: mimeType,
                     caption: text || '', // Safely fall back to empty string if no caption provided
-                    mimeType: req.file ? req.file.mimetype : null,
-                    type: resolvedType,
-                    originalName: req.file ? req.file.originalname : 'file'
                 });
 
                 // Store the media message in the database
                 await WaMessage.create({
                     chat_id: chat.id,
                     message_id: result.key.id,
-                    message_type: resolvedType,
+                    message_type: 'imageMessage',
                     message: text || '',
-                    media_data: mediaUrl || (req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : ''),
-                    mime_type: req.file ? req.file.mimetype : null,
+                    media_data: image,
+                    mime_type: mimeType,
                     is_from_me: true,
                     status: 'Send'
                 });

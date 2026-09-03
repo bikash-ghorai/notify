@@ -39,6 +39,10 @@ User.init({
         allowNull: false,
         defaultValue: 0
     },
+    have_whatsapp: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+    },
     status: {
         type: DataTypes.STRING(50),
         allowNull: false

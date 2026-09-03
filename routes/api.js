@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 
 const UserController = require('../controllers/userController');
 const NotificationController = require('../controllers/notificationController');
 const SocketController = require('../controllers/socketController');
 const AnalyticController = require('../controllers/analyticController');
 const WhatsappController = require('../controllers/whatsappController');
+const BroadcastController = require('../controllers/broadcastController');
 
 // Define API routes
 router.post('/sync-users', UserController.syncUsers);
@@ -33,7 +32,14 @@ router.get('/whatsapp/status', WhatsappController.getStatus);
 router.get('/whatsapp/qr', WhatsappController.getQR);
 router.post('/whatsapp/chats', WhatsappController.getChats);
 router.post('/whatsapp/chats/messages', WhatsappController.getChatMessages);
-router.post('/whatsapp/send', upload.single('file'), WhatsappController.sendWaMessage);
+router.post('/whatsapp/send', WhatsappController.sendWaMessage);
+
+// For WhatsApp Broadcast
+router.post('/broadcasts', BroadcastController.list);
+router.post('/broadcast/create', BroadcastController.create);
+router.post('/broadcast/update', BroadcastController.update);
+router.get('/broadcast/:id', BroadcastController.edit);
+router.post('/broadcast/delete', BroadcastController.delete);
 
 module.exports = router;
 
