@@ -168,7 +168,7 @@ async function startWhatsApp(socketIoInstance = null) {
                         status = 'Unknown';
                     }
                     if (status == 'Unknown' || status == '') continue; // Skip if status is unknown
-                    await WaMessage.update({ status: status }, { where: { message_id: key.id } });
+                    await WaMessage.update({ status: status }, { where: { message_id: key.id }, whereNot: { status: 'Read' } });
                     io.emit('whatsapp', { status: 'Update Message Status' });
                 } catch (error) {
                     console.error('Error updating message status:', error.message);
