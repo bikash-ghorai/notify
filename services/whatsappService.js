@@ -48,11 +48,11 @@ async function startWhatsApp(socketIoInstance = null) {
             currentQR = null;
             if (io) io.emit('whatsapp', { status: false });
 
-            // const statusCode = lastDisconnect?.error?.output?.statusCode;
-            // const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            // if (shouldReconnect) {
-            //     startWhatsApp(io);
-            // }
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                startWhatsApp(io);
+            }
         } else if (connection === 'open') {
             isConnected = true;
             currentQR = null;
@@ -221,8 +221,7 @@ function getQR() {
     if (currentQR) {
         return currentQR;
     } else {
-        startWhatsApp(io);
-        throw new Error('QR code is not available. Please ensure WhatsApp is not connected.');
+        return null;
     }
 }
 

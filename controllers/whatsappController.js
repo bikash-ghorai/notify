@@ -11,12 +11,11 @@ class WhatsappController {
 
     static getQR(req, res) {
         const connected = whatsappService.getStatus();
-        const qrImage = whatsappService.getQR();
-
         if (connected) {
             return res.json({ status: false, message: 'WhatsApp is already connected.', data: {} });
         }
 
+        const qrImage = whatsappService.getQR();
         if (qrImage) {
             return res.json({ status: true, message: 'QR code generated.', data: { qr: qrImage } });
         }
