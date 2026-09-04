@@ -1,4 +1,5 @@
 const whatsappService = require('../services/whatsappService');
+const { Op } = require('sequelize');
 const WaChat = require('../models/WaChat');
 const WaMessage = require('../models/WaMessage');
 const User = require('../models/User');
@@ -175,6 +176,34 @@ class WhatsappController {
         } catch (error) {
             console.error('Error sending message:', error.message);
             return res.json({ status: false, message: error.message, data: {} });
+        }
+    }
+
+    static async getUnreadChats(req, res) {
+        const { zone_ids = [], limit = 10, page = 1 } = req.body;
+        const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        try {
+            if (zone_ids.length > 0) {
+                const chats = await WaChat.findAll({
+                    where: { zone_ids: { [Op.overlap]: zone_ids }, unread_count: { [Op.gt]: 0 } },
+                    order: [['last_message_at', 'DESC']],
+                    limit: parseInt(limit, 10),
+                    offset: parseInt(offset, 10),
+                });
+
+                return res.json({ status: true, message: 'Chats fetched successfully.', data: chats });
+            } else {
+                const chats = await WaChat.findAll({
+                    where: { unread_count: { [Op.gt]: 0 } },
+                    limit: parseInt(limit, 10),
+                    offset: parseInt(offset, 10),
+                    order: [['last_message_at', 'DESC']],
+                });
+
+                return res.json({ status: true, message: 'Chats fetched successfully.', data: chats });
+            }
+        } catch (error) {
+            return res.json({ status: false, message: error.message, data: [] });
         }
     }
 }

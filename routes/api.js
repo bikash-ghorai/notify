@@ -31,6 +31,7 @@ router.post('/analytics/add-to-cart', AnalyticController.addToCart);
 router.get('/whatsapp/status', WhatsappController.getStatus);
 router.get('/whatsapp/qr', WhatsappController.getQR);
 router.get('/whatsapp/reset', WhatsappController.resetSession);
+router.post('/whatsapp/unread-chats', WhatsappController.getUnreadChats);
 router.post('/whatsapp/chats', WhatsappController.getChats);
 router.post('/whatsapp/chats/messages', WhatsappController.getChatMessages);
 router.post('/whatsapp/send', WhatsappController.sendWaMessage);
