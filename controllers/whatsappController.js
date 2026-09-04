@@ -9,7 +9,12 @@ class WhatsappController {
         return res.json({ status: connected, message: connected ? 'WhatsApp is connected.' : 'WhatsApp is not connected.', data: {} });
     }
 
-    static getQR(req, res) {
+    static async getQR(req, res) {
+        if (req.query.reset === 'true' || req.query.refresh === 'true') {
+            await whatsappService.resetSession();
+            return res.json({ status: false, message: 'Session reset initiated. Generating new QR code, please retry in 2-3 seconds.', data: {} });
+        }
+
         const connected = whatsappService.getStatus();
         if (connected) {
             return res.json({ status: false, message: 'WhatsApp is already connected.', data: {} });
@@ -20,7 +25,16 @@ class WhatsappController {
             return res.json({ status: true, message: 'QR code generated.', data: { qr: qrImage } });
         }
 
-        return res.json({ status: false, message: 'QR code not ready yet. Try again in a few seconds.', data: {} });
+        return res.json({ status: false, message: 'QR code not ready yet. Try again in a few seconds, or use ?reset=true to force a fresh QR.', data: {} });
+    }
+
+    static async resetSession(req, res) {
+        try {
+            await whatsappService.resetSession();
+            return res.json({ status: true, message: 'WhatsApp session reset initiated. New QR will be generated shortly.', data: {} });
+        } catch (error) {
+            return res.json({ status: false, message: error.message, data: {} });
+        }
     }
 
     // Fetch all recent chat threads ordered by last message time

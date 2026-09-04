@@ -30,6 +30,7 @@ router.post('/analytics/add-to-cart', AnalyticController.addToCart);
 // For WhatsApp
 router.get('/whatsapp/status', WhatsappController.getStatus);
 router.get('/whatsapp/qr', WhatsappController.getQR);
+router.get('/whatsapp/reset', WhatsappController.resetSession);
 router.post('/whatsapp/chats', WhatsappController.getChats);
 router.post('/whatsapp/chats/messages', WhatsappController.getChatMessages);
 router.post('/whatsapp/send', WhatsappController.sendWaMessage);

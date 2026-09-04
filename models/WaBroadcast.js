@@ -46,6 +46,11 @@ WaBroadcast.init({
     failed: {
         type: DataTypes.INTEGER,
         defaultValue: 0
+    },
+    last_user_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0
     }
 }, {
     sequelize,

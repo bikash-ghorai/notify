@@ -3,65 +3,143 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
-    downloadMediaMessage
+    downloadMediaMessage,
+    Browsers
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
+// let qrcodeTerminal = null;
+// try {
+//     qrcodeTerminal = require('qrcode-terminal');
+// } catch (e) {
+//     qrcodeTerminal = null;
+// }
+const path = require('path');
+const fs = require('fs');
 const WaChat = require('../models/WaChat');
 const WaMessage = require('../models/WaMessage');
+
+const AUTH_DIR = path.resolve(__dirname, '../auth_session');
 
 let sock = null;
 let isConnected = false;
 let currentQR = null;
 let io = null;
+let reconnectTimer = null;
 
 async function startWhatsApp(socketIoInstance = null) {
     if (socketIoInstance) {
         io = socketIoInstance;
     }
 
-    const { state, saveCreds } = await useMultiFileAuthState('./auth_session');
-    const { version } = await fetchLatestBaileysVersion();
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
 
-    sock = makeWASocket({
-        version,
-        auth: state,
-        logger: pino({ level: 'silent' }),
-        browser: ['Ubuntu', 'Chrome', '20.0.04'],
-        syncFullHistory: true,
-    });
+    try {
+        if (!fs.existsSync(AUTH_DIR)) {
+            fs.mkdirSync(AUTH_DIR, { recursive: true });
+        }
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+        const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
-        if (qr) {
-            // qrcodeTerminal.generate(qr, { small: true });
+        let version;
+        try {
+            const { version: latestVersion } = await fetchLatestBaileysVersion();
+            version = latestVersion;
+        } catch (verErr) {
+            console.warn('[WhatsApp] Could not fetch latest Baileys version, using default:', verErr.message);
+        }
+
+        if (sock) {
             try {
-                currentQR = await QRCode.toDataURL(qr);
-            } catch (err) {
-                console.error('[WhatsApp] Failed to generate Base64 QR', err);
-            }
+                sock.ev.removeAllListeners();
+                sock.end(undefined);
+            } catch (e) { }
+            sock = null;
         }
 
-        if (connection === 'close') {
-            isConnected = false;
-            currentQR = null;
-            if (io) io.emit('whatsapp', { status: false });
+        sock = makeWASocket({
+            version,
+            auth: state,
+            logger: pino({ level: 'silent' }),
+            browser: Browsers ? Browsers.ubuntu('Chrome') : ['Ubuntu', 'Chrome', '20.0.04'],
+            syncFullHistory: true,
+        });
 
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                startWhatsApp(io);
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                console.log('[WhatsApp] QR code generated. Scan this with WhatsApp:');
+                // if (qrcodeTerminal) {
+                //     try {
+                //         qrcodeTerminal.generate(qr, { small: true });
+                //     } catch (e) { }
+                // }
+                try {
+                    currentQR = await QRCode.toDataURL(qr);
+                    if (io) {
+                        io.emit('whatsapp', { status: 'QR', qr: currentQR });
+                    }
+                } catch (err) {
+                    console.error('[WhatsApp] Failed to generate Base64 QR', err);
+                }
             }
-        } else if (connection === 'open') {
-            isConnected = true;
-            currentQR = null;
-            if (io) io.emit('whatsapp', { status: true });
-            console.log('✅ [WhatsApp] Connected successfully.');
-        }
-    });
 
-    sock.ev.on('creds.update', saveCreds);
+            if (connection === 'close') {
+                isConnected = false;
+                currentQR = null;
+
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const errorMessage = lastDisconnect?.error?.message;
+                console.warn(`[WhatsApp] Connection closed. Code: ${statusCode}, Reason: ${errorMessage || 'Unknown'}`);
+
+                const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
+                const isRestartRequired = statusCode === DisconnectReason.restartRequired || statusCode === 515;
+
+                if (io) {
+                    io.emit('whatsapp', { status: isLoggedOut ? 'Logged Out' : 'Disconnected' });
+                }
+
+                if (isLoggedOut) {
+                    console.log('[WhatsApp] Logged out or session expired. Clearing auth_session to generate new QR...');
+                    try {
+                        if (fs.existsSync(AUTH_DIR)) {
+                            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+                        }
+                    } catch (fsErr) {
+                        console.error('[WhatsApp] Failed to delete auth_session folder:', fsErr.message);
+                    }
+                    // Generate new QR quickly after logout
+                    reconnectTimer = setTimeout(() => {
+                        startWhatsApp(io);
+                    }, 2000);
+                } else if (isRestartRequired) {
+                    // Code 515: Baileys stream restart required right after scan/connect - reconnect immediately
+                    console.log('[WhatsApp] Stream restart required (Code 515). Reconnecting immediately...');
+                    reconnectTimer = setTimeout(() => {
+                        startWhatsApp(io);
+                    }, 1000);
+                } else {
+                    console.log('[WhatsApp] Temporary disconnect. Reconnecting in 5 seconds...');
+                    reconnectTimer = setTimeout(() => {
+                        startWhatsApp(io);
+                    }, 5000);
+                }
+            } else if (connection === 'open') {
+                isConnected = true;
+                currentQR = null;
+                if (io) io.emit('whatsapp', { status: 'Logged In' });
+                console.log('✅ [WhatsApp] Connected successfully.');
+            }
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+    } catch (err) {
+        console.error('[WhatsApp] Failed to start WhatsApp socket:', err);
+    }
 
     // Inbound Messages Listener
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
@@ -216,7 +294,7 @@ async function sendMediaMessage({ to, fileBuffer, mimeType, caption }) {
     let payload = { image: mediaData, caption: caption || '', mimetype: mimeType };
 
     const result = await sock.sendMessage(to, payload);
-    
+
     return result;
 }
 
@@ -241,10 +319,45 @@ async function haveWhatsapp(phone) {
     return false;
 }
 
+async function resetSession() {
+    console.log('[WhatsApp] Manually resetting WhatsApp session...');
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    if (sock) {
+        try {
+            sock.ev.removeAllListeners();
+            sock.end(undefined);
+        } catch (e) { }
+        sock = null;
+    }
+
+    isConnected = false;
+    currentQR = null;
+
+    try {
+        if (fs.existsSync(AUTH_DIR)) {
+            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        }
+    } catch (e) {
+        console.error('[WhatsApp] Failed to delete auth_session folder:', e.message);
+    }
+
+    if (io) {
+        io.emit('whatsapp', { status: false, message: 'Session reset' });
+    }
+
+    console.log('[WhatsApp] Session cleared. Starting fresh socket for new QR code...');
+    await startWhatsApp(io);
+}
+
 module.exports = {
     startWhatsApp,
     getStatus,
     getQR,
+    resetSession,
     haveWhatsapp,
     sendTextMessage,
     sendMediaMessage

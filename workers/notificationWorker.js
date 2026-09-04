@@ -49,7 +49,7 @@ async function startNotifier() {
 
                 const users = await User.findAll({
                     where: userWhereClause,
-                    attributes: ['user_id', 'fcm_token']
+                    attributes: ['id', 'user_id', 'fcm_token', 'status', 'zone_id', 'flag']
                 });
 
                 const tokens = users.map(u => u.fcm_token).filter(token => token && token.trim() !== '');
