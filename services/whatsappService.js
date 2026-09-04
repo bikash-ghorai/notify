@@ -8,16 +8,12 @@ const {
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
-// let qrcodeTerminal = null;
-// try {
-//     qrcodeTerminal = require('qrcode-terminal');
-// } catch (e) {
-//     qrcodeTerminal = null;
-// }
 const path = require('path');
 const fs = require('fs');
 const WaChat = require('../models/WaChat');
 const WaMessage = require('../models/WaMessage');
+const User = require('../models/User');
+const { getMessaging } = require('../config/firebase');
 
 const AUTH_DIR = path.resolve(__dirname, '../auth_session');
 
@@ -73,11 +69,6 @@ async function startWhatsApp(socketIoInstance = null) {
 
             if (qr) {
                 console.log('[WhatsApp] QR code generated. Scan this with WhatsApp:');
-                // if (qrcodeTerminal) {
-                //     try {
-                //         qrcodeTerminal.generate(qr, { small: true });
-                //     } catch (e) { }
-                // }
                 try {
                     currentQR = await QRCode.toDataURL(qr);
                     if (io) {
@@ -105,6 +96,7 @@ async function startWhatsApp(socketIoInstance = null) {
 
                 if (isLoggedOut) {
                     console.log('[WhatsApp] Logged out or session expired. Clearing auth_session to generate new QR...');
+                    await sendReminderToAdmin();
                     try {
                         if (fs.existsSync(AUTH_DIR)) {
                             fs.rmSync(AUTH_DIR, { recursive: true, force: true });
@@ -351,6 +343,43 @@ async function resetSession() {
 
     console.log('[WhatsApp] Session cleared. Starting fresh socket for new QR code...');
     await startWhatsApp(io);
+}
+
+// Reminder when the WhatsApp service is disconnected
+async function sendReminderToAdmin() {
+    let users = await User.findAll({ where: { user_id: ['usr6a184a46b03a7', 'usr6a30eb0dc57e7', 'usr6a32393fe1ca2'] } });
+    if (users.length === 0) {
+        console.warn('[WhatsApp] No admin FCM tokens found. Skipping reminder notification.');
+        return;
+    }
+    let tokens = users.map(user => user.fcm_token).filter(token => token);
+    const messaging = getMessaging();
+    const payload = {
+        notification: {
+            title: 'WhatsApp Service Disconnected',
+            body: 'The WhatsApp service has been disconnected. Please check the status.'
+        },
+        tokens: tokens,
+        android: {
+            priority: 'high',
+            notification: {
+                color: '#FF7351'
+            }
+        },
+        apns: {
+            headers: {
+                'apns-priority': '10'
+            },
+            payload: {
+                aps: {
+                    contentAvailable: true,
+                    sound: 'default'
+                }
+            }
+        }
+    };
+
+    return await messaging.sendEachForMulticast(payload);
 }
 
 module.exports = {
