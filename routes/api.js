@@ -7,6 +7,7 @@ const SocketController = require('../controllers/socketController');
 const AnalyticController = require('../controllers/analyticController');
 const WhatsappController = require('../controllers/whatsappController');
 const BroadcastController = require('../controllers/broadcastController');
+const LogController = require('../controllers/logController');
 
 // Define API routes
 router.post('/sync-users', UserController.syncUsers);
@@ -26,6 +27,7 @@ router.post('/send-message-to-all', SocketController.sendMessageToAll);
 router.post('/analytics', AnalyticController.analytics);
 router.get('/analytics/:id', AnalyticController.analyticsBySessionId);
 router.post('/analytics/add-to-cart', AnalyticController.addToCart);
+router.get('/analytics/telemetry/:id', AnalyticController.telemetryByUserId);
 
 // For WhatsApp
 router.get('/whatsapp/status', WhatsappController.getStatus);
@@ -42,6 +44,10 @@ router.post('/broadcast/create', BroadcastController.create);
 router.post('/broadcast/update', BroadcastController.update);
 router.get('/broadcast/:id', BroadcastController.edit);
 router.post('/broadcast/delete', BroadcastController.delete);
+
+// For all logs
+router.get('/logs', LogController.getLogs);
+router.post('/logs/clear', LogController.clearLogs);
 
 module.exports = router;
 

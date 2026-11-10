@@ -160,33 +160,45 @@ class AnalyticController {
     }
 
     static async saveDeviceInfo(data) {
-        const {
-            session_id,
-            user_id,
-            version,
-            device_id,
-            brand,
-            device_name,
-            base_os,
-            system_version,
-            battery_level,
-            network_type
-        } = data || {};
+        try {
+            const {
+                session_id,
+                user_id,
+                version,
+                device_id,
+                brand,
+                device_name,
+                base_os,
+                system_version,
+                battery_level,
+                network_type
+            } = data || {};
 
-        if (!session_id || !user_id) {
-            throw new Error('Required params are missing');
+            if (!session_id || !user_id) {
+                throw new Error('Required params are missing');
+            }
+
+            const normalizedBrand = typeof brand === 'string' ? brand.trim() : '';
+            const normalizedDeviceName = typeof device_name === 'string' ? device_name.trim() : '';
+            const model = normalizedBrand &&
+                normalizedDeviceName.toLowerCase().includes(normalizedBrand.toLowerCase())
+                ? normalizedDeviceName
+                : [normalizedBrand, normalizedDeviceName].filter(Boolean).join(' ');
+
+            return await UserDevice.create({
+                session_id: session_id,
+                user_id: user_id,
+                app_version: version,
+                device_id: device_id,
+                model: model,
+                os_version: base_os+' '+system_version,
+                battery_level: battery_level,
+                network_type: network_type
+            });
+        } catch (error) {
+            console.error("Failed to save device info:", error);
+            throw error;
         }
-
-        return await UserDevice.create({
-            session_id: session_id,
-            user_id: user_id,
-            app_version: version,
-            device_id: device_id,
-            model: brand+' '+device_name,
-            os_version: base_os+' '+system_version,
-            battery_level: battery_level,
-            network_type: network_type
-        });
     }
 
     static async addToCart(req, res) {
@@ -232,7 +244,42 @@ class AnalyticController {
             return res.status(500).json({ status: false, error: "Failed to list analytics" });
         }
     }
+
+    static async telemetryByUserId(req, res) {
+        try {
+            const user_id = req.params.id || '';
+
+            if (!user_id) {
+                return res.status(400).json({ status: false, error: "User ID is required" });
+            }
+
+            // Get lastest device info
+            const deviceData = await UserDevice.findOne({
+                where: {
+                    user_id: user_id
+                },
+                order: [['created_at', 'ASC']]
+            });
+
+            // Get total cart page visit
+            const cartVisit = await Analytics.count({
+                where: {
+                    action: 'page_view',
+                    name: 'Cart Screen',
+                    user_id: user_id
+                }
+            });
+
+            res.json({
+                status: true, data: { device_info: deviceData, cart_visit: cartVisit }
+            });
+        } catch (error) {
+            console.error("Failed to list analytics:", error);
+            return res.status(500).json({ status: false, error: "Failed to list analytics" });
+        }
+    }
 }
 
-module.exports = AnalyticController;
 
+
+module.exports = AnalyticController;
