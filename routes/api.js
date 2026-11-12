@@ -47,7 +47,7 @@ router.post('/broadcast/delete', BroadcastController.delete);
 
 // For all logs
 router.get('/logs', LogController.getLogs);
-router.post('/logs/clear', LogController.clearLogs);
+router.get('/logs/clear', LogController.clearLogs);
 
 module.exports = router;
 

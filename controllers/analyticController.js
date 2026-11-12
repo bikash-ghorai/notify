@@ -258,7 +258,7 @@ class AnalyticController {
                 where: {
                     user_id: user_id
                 },
-                order: [['created_at', 'ASC']]
+                order: [['id', 'DESC']]
             });
 
             // Get total cart page visit
