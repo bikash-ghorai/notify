@@ -145,7 +145,7 @@ async function startWhatsApp(socketIoInstance = null) {
                 if (!messageData) continue;
 
                 const isFromMe = Boolean(msg.key.fromMe);
-                if (isFromMe) continue; // Skip processing messages sent by the bot itself
+                // if (isFromMe) continue; // Skip processing messages sent by the bot itself
 
                 const messageType = Object.keys(messageData)[0];
                 const isMedia = ['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage'].includes(messageType);
@@ -193,14 +193,22 @@ async function startWhatsApp(socketIoInstance = null) {
                         unread_count: chat.unread_count + 1
                     }, { where: { phone: clearNumber } });
                 } else {
+                    // Create a new chat room
+                    const user = await getUserInfo(clearNumber);
+                    let userName = msg.pushName || '';
+                    let zonIds = [];
+                    if (user) {
+                        userName = user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : userName;
+                        zonIds.push(user.zone_id);
+                    }
                     chat = await WaChat.create({
                         chat_jid: chatJid,
-                        name: msg.pushName || '',
+                        name: userName,
                         phone: clearNumber,
                         last_message: text || msgType || '',
                         last_message_at: new Date(),
                         unread_count: 1,
-                        zone_ids: [],
+                        zone_ids: zonIds,
                     });
                 }
 
@@ -212,7 +220,7 @@ async function startWhatsApp(socketIoInstance = null) {
                     message: text,
                     media_data: mediaBase64,
                     mime_type: mimeType,
-                    is_from_me: false,
+                    is_from_me: isFromMe ? true : false,
                     status: 'Send'
                 });
 
@@ -382,6 +390,15 @@ async function sendReminderToAdmin() {
     return await messaging.sendEachForMulticast(payload);
 }
 
+async function getUserInfo(phone) {
+    const user = await User.findOne({ where: { phone: phone } });
+    if (user) {
+        return user;
+    } else {
+        return null;
+    }
+}
+
 module.exports = {
     startWhatsApp,
     getStatus,
@@ -389,5 +406,6 @@ module.exports = {
     resetSession,
     haveWhatsapp,
     sendTextMessage,
-    sendMediaMessage
+    sendMediaMessage,
+    getUserInfo
 };

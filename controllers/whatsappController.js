@@ -2,7 +2,27 @@ const whatsappService = require('../services/whatsappService');
 const { Op } = require('sequelize');
 const WaChat = require('../models/WaChat');
 const WaMessage = require('../models/WaMessage');
-const User = require('../models/User');
+const Zone = require('../models/Zone');
+
+async function addZoneNames(chats) {
+    const zoneIds = [...new Set(chats.flatMap(chat => chat.zone_ids || []))];
+    const zones = zoneIds.length > 0
+        ? await Zone.findAll({
+            where: { zone_id: { [Op.in]: zoneIds } },
+            attributes: ['zone_id', 'name'],
+        })
+        : [];
+    const zoneNames = new Map(zones.map(zone => [String(zone.zone_id), zone.name]));
+
+    return chats.map(chat => {
+        const chatData = chat.toJSON();
+        const names = (chatData.zone_ids || [])
+            .map(zoneId => zoneNames.get(String(zoneId)))
+            .filter(Boolean);
+
+        return { ...chatData, zone_name: names.join(', ') || null };
+    });
+}
 
 class WhatsappController {
     static getStatus(req, res) {
@@ -51,7 +71,7 @@ class WhatsappController {
                     offset: parseInt(offset, 10),
                 });
 
-                return res.json({ status: true, message: 'Chats fetched successfully.', data: chats });
+                return res.json({ status: true, message: 'Chats fetched successfully.', data: await addZoneNames(chats) });
             } else {
                 const chats = await WaChat.findAll({
                     limit: parseInt(limit, 10),
@@ -59,7 +79,7 @@ class WhatsappController {
                     order: [['last_message_at', 'DESC']],
                 });
 
-                return res.json({ status: true, message: 'Chats fetched successfully.', data: chats });
+                return res.json({ status: true, message: 'Chats fetched successfully.', data: await addZoneNames(chats) });
             }
         } catch (error) {
             return res.json({ status: false, message: error.message, data: [] });
@@ -109,24 +129,40 @@ class WhatsappController {
         }
 
         try {
+            // check have whatsapp or not
+            const isWhatsapp = await whatsappService.haveWhatsapp(phone);
+            if (!isWhatsapp) {
+                return res.json({ status: false, message: 'The provided number is not registered on WhatsApp.', data: {} });
+            }
+
             // Check for new chat or not
             let chat = await WaChat.findOne({ where: { phone: phone } });
             let to = chat ? chat.chat_jid : `91${phone}@s.whatsapp.net`;
-            if (!chat) {
-                // check have whatsapp or not
-                const isWhatsapp = await whatsappService.haveWhatsapp(phone);
-                if (!isWhatsapp) {
-                    return res.json({ status: false, message: 'The provided number is not registered on WhatsApp.', data: {} });
+            if (chat) {
+                // Update last message and timestamp
+                let lastMessage = text ? text : image ? 'imageMessage' : '';
+                await WaChat.update({
+                    last_message: lastMessage,
+                    last_message_at: new Date()
+                }, { where: { id: chat.id } });
+            } else {
+                // Create a new chat room
+                const user = await whatsappService.getUserInfo(phone);
+                let userName = phone;
+                let zonIds = [];
+                if (user) {
+                    userName = user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : phone;
+                    zonIds.push(user.zone_id);
                 }
 
                 let lastMessage = text ? text : image ? 'imageMessage' : '';
                 chat = await WaChat.create({
                     phone: phone,
-                    name: phone,
+                    name: userName,
                     last_message: lastMessage,
                     last_message_at: new Date(),
                     unread_count: 0,
-                    zone_ids: []
+                    zone_ids: zonIds
                 });
             }
 
